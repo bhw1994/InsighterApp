@@ -10,7 +10,7 @@ DbAccessor.prototype.init=function(){
 
     switch (arguments.length)
     {
-        case 3:
+        case 4:
             this.db = window.openDatabase(arguments[0], arguments[1], arguments[2], arguments[3]);
             break;
         default :
