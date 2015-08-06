@@ -82,6 +82,11 @@ DbAccessor.prototype.createTable=function(tableName,valueArr)
     self.changeQuery(queryFunc);
 
 }
+DbAccessor.prototype.dropTable=function(tableName)
+{
+    var self=this;
+    self.changeQuery("DROP TABLE IF EXISTS "+tableName);
+}
 DbAccessor.prototype.insert=function(tableName,valueArr){
     var self=this;
 
@@ -161,6 +166,17 @@ function querySuccess(tx, results) {
         resultString+="Row = " + i + " ID = " + results.rows.item(i).id + " Data =  " + results.rows.item(i).data+"\n";
     }
     alert(resultString);
+    queryResult=results;
 }
 
 var dbAccessor=new DbAccessor();
+
+
+function resourceinsert(resource)
+{
+
+
+    dbAccessor.insert();
+    var queryResult;
+
+}
