@@ -21,7 +21,7 @@
                         <p>행복</p>
                     </div>
                 </li>
-                <li><a href="">단어2</a></li>
+                <li><a href="test.html">단어2</a></li>
                 <li><a href="">단어3</a></li>
             </ul>
         </div>
@@ -30,7 +30,16 @@
         </div>
     </div>
     <script>
-        alert("ajax");
+        $.ajax({
+            url:"http://192.168.0.7:9611",
+            async:false,
+            success:function(data){
+                $("#test").find("h1").text(data.title);
+            },
+            error:function(e){
+                $("#test").find("h1").text("error");
+            }
+        });
 
     </script>
 </body>
