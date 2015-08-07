@@ -85,12 +85,14 @@ DbAccessor.prototype.createTable=function(tableName,valueArr)
 DbAccessor.prototype.dropTable=function(tableName)
 {
     var self=this;
-    self.changeQuery("DROP TABLE IF EXISTS "+tableName);
+    var queryFunc=self.makeQueryFunc("DROP TABLE IF EXISTS "+tableName);
+    self.changeQuery(queryFunc);
 }
 DbAccessor.prototype.insert=function(tableName,valueArr){
     var self=this;
 
     var str="insert into "+tableName+" values(\""+valueArr.join("\",\"")+"\")";
+
     var queryFunc=self.makeQueryFunc(str);
     self.changeQuery(queryFunc);
 };
@@ -108,6 +110,12 @@ DbAccessor.prototype.select=function(){
         case 2:
             var str="select "+arguments[1]+" from "+arguments[0];
             var queryFunc=self.makeQueryFunc(str,querySuccess);
+            self.resultQuery(queryFunc);
+            break;
+        case 3:
+            var querySuccessFunc=self.makeQuerySuccessFunc(querySuccess,arguments[2]);
+            var str="select "+arguments[1]+" from "+arguments[0];
+            var queryFunc=self.makeQueryFunc(str,querySuccessFunc);
             self.resultQuery(queryFunc);
             break;
 
@@ -135,7 +143,12 @@ DbAccessor.prototype.makeQueryFunc=function()
     }
 
 }
-
+DbAccessor.prototype.makeQuerySuccessFunc=function(arg1,arg2){
+    return function(tx,results){
+        arg1(tx, results);
+        arg2();
+    }
+}
 function populateDB(tx) {
     tx.executeSql('DROP TABLE IF EXISTS DEMO');
     tx.executeSql('CREATE TABLE IF NOT EXISTS DEMO (id unique, data)');
@@ -156,6 +169,10 @@ function queryDB(tx) {
     tx.executeSql('SELECT * FROM DEMO', [], querySuccess, errorCB);
 }
 
+
+
+
+
 function querySuccess(tx, results) {
 
     var resultString='';
@@ -163,20 +180,19 @@ function querySuccess(tx, results) {
     resultString+=len+" rows found.\n";
 
     for (var i=0; i<len; i++){
-        resultString+="Row = " + i + " ID = " + results.rows.item(i).id + " Data =  " + results.rows.item(i).data+"\n";
+        resultString+="Row = " + i + " ID = " + results.rows.item(i).id + " word =  " + results.rows.item(i).word+" mean =  " + results.rows.item(i).mean+"\n";
     }
     alert(resultString);
     queryResult=results;
+
 }
-
-var dbAccessor=new DbAccessor();
-
 
 function resourceinsert(resource)
 {
 
 
     dbAccessor.insert();
-    var queryResult;
 
-}
+
+}var queryResult;
+var dbAccessor=new DbAccessor();
