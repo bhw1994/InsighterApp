@@ -4,26 +4,131 @@
     <meta charset="UTF-8">
     <title></title>
 
-    <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css" />
+    <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css"/>
     <script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
     <script src="http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.js"></script>
+    <script src="js/DbAccessor/DbAccessor.js"></script>
+
+    <script>
+        onDeviceReady();
+
+        function onDeviceReady() {
+
+            var wordTableResource = downloadWordTable();
+            var tableName = wordTableResource.title;
+
+            dbAccessor.createTable(tableName,["id unique","word","mean"]);
+            insertResources(tableName,"*");
+            queryResult;
+
+
+
+        }
+
+        function insertResources(tableName, wordTableResource){
+            for(var index in wordTableResource.wordMap){
+                var wordSet = wordTableResource.wordMap[index];
+                var id = 0;
+                dbAccessor.insert(tableName, [id,wordSet.word,wordSet.mean]);
+            }
+        }
+
+        function populateDB(tx,wordTableResource) {
+
+            var tableName = wordTableResource.title;
+            tx.executeSql('drop table if exists ' + tableName);
+            tx.executeSql('CREATE TABLE IF NOT EXISTS ' + tableName + ' (id, word,mean)');
+            for(var index in wordTableResource.wordMap){
+                var wordSet = wordTableResource.wordMap[index];
+                var id = 0;
+                insertWordTable(tx,id++,tableName,wordSet);
+            }
+//            tx.executeSql('INSERT INTO ' + tableName + ' (id, data) VALUES (1, "First row")');
+
+        }
+
+        function insertWordTable(tx,id,tableName,wordSet){
+
+            tx.executeSql(makeInsertQuery(tableName,id,wordSet));
+        }
+
+        function makeInsertQuery(tableName, id, wordSet){
+            return "INSERT INTO " + tableName + " (id, word, mean) VALUES ( '" + id + "' , '" + wordSet.word + "' , '" + wordSet.mean + "')";
+            //"INSERT INTO food (name, sacharides, glycemia, category1) VALUES ('" + nextLine[0] + "', '" + nextLine[1] + "', '"  + nextLine[2]+ "', '" + nextLine[3] +"' )";
+        }
+
+        function selectDB(tx,tableName){
+            tx.executeSql('select * from ' + tableName,[],querySuccess,errorCB);
+        }
+
+        function querySuccess(tx,results){
+            console.log("Returned rows = " + results.rows.length);
+            // this will be true since it was a select statement and so rowsAffected was 0
+            if (!results.rowsAffected) {
+                console.log('No rows affected!');
+            }else {
+                // for an insert statement, this property will return the ID of the last inserted row
+                console.log("Last inserted row ID = " + results.insertId);
+            }
+
+            addListView(results);
+        }
+
+        function errorCB(err) {
+            alert("Error processing SQL: "+err.message);
+        }
+
+
+        function successCB(wordTableResource) {
+            var db = window.openDatabase("wordTable", "1.0", "Insighter wordTable", 20000);
+            db.transaction(function(tx){
+                selectDB(tx,wordTableResource.title), errorCB
+            });
+        }
+
+        function downloadWordTable() {
+
+            var getData;
+            $.ajax({
+                url: "http://192.168.0.7:9611",
+                async: false,
+                success: function (data) {
+                    getData = data;
+                },
+                error: function (e) {
+                    getData = null;
+                    alert("download error");
+                   // $("#test").find("h1").text("error");
+                }
+            });
+            return getData;
+        }
+
+        function addListView(results){
+            for(var index in results.rows) {
+                $("#wordLists").append("<li>" + results.rows[index].word +  "</li>");
+            }
+        }
+    </script>
+
 </head>
 <body>
-    <div data-role="page">
-        <div data-role="header">
-            <h1>나의 모바일 홈페이지</h1>
-        </div>
-        <div data-role="content">
-            <ul data-role="listview">
-                <li><a href="word.html">Day1</a></li>
-                <li><a href="">day2</a></li>
-                <li><a href="">day3</a></li>
-            </ul>
-        </div>
-        <div data-role="footer">
-            <h1> Copyright by makand123. All Rights Reserved.</h1>
-        </div>
+<div data-role="page">
+    <div data-role="header">
+        <h1>나의 모바일 홈페이지</h1>
     </div>
+    <div data-role="content">
+        <ul data-role="listview" id="wordLists">
+            <li><a href="word.html">Day1</a></li>
+            <li><a href="">day2</a></li>
+            <li><a href="">day3</a></li>
+        </ul>
+    </div>
+    <div data-role="footer">
+        <h1> Copyright by makand123. All Rights Reserved.</h1>
+    </div>
+</div>
+
 
 
 </body>
