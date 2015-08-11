@@ -19,21 +19,36 @@ function DbAccessor()
 {
     this.db;
     this.dbName="test";
+    this.querySentence='';
     this.init();
 }
 DbAccessor.prototype.init=function(){
 
     var self=this;
+
+    var dbName;
+    var dbVersion;
+    var dbShowName;
+    var dbSize;
     switch (arguments.length)
     {
         case 4:
-            self.db = window.openDatabase(arguments[0], arguments[1], arguments[2], arguments[3]);
+            dbName=arguments[0];
+            dbVersion=arguments[1];
+            dbShowName=arguments[2];
+            dbSize=arguments[3];
             break;
 
         default :
-            self.db = window.openDatabase(self.dbName, "1.0", "Test DB", 1000000);
+            dbName=self.dbName;
+            dbVersion="1.0";
+            dbShowName="Test DB";
+            dbSize=1000000;
             break;
     }
+
+    self.db = window.openDatabase(dbName, dbVersion, dbShowName,dbSize);
+
 }
 
 function errorCB(err) {
@@ -50,47 +65,72 @@ DbAccessor.prototype.transaction=function()
     var arg=arguments;
     var self=this;
 
+    var queryFunc;
+    var errorFunc;
+    var successFunc;
+
     switch (arg.length)
     {
         case 1:
-            self.db.transaction(arg[0]);
+            queryFunc=arg[0];
+            errorFunc=errorCB;
+            successFunc=successCB;
             break;
 
         case 2:
-            self.db.transaction(arg[0],arg[1]);
+            queryFunc=arg[0];
+            errorFunc=arg[1];
+            successFunc=successCB;
             break;
 
         case 3:
-            self.db.transaction(arg[0],arg[1],arg[2]);
+            queryFunc=arg[0];
+            errorFunc=arg[1];
+            successFunc=arg[2];
             break;
     }
-//this.db.transaction(query,error,succeess);
+
+    self.db.transaction(queryFunc,errorFunc,successFunc);
 }
+
 
 DbAccessor.prototype.makeExecuteSql=function()
 {
 
+    var self=this;
     var arg=arguments;
+
+    var sqlFunc;
+    var successFunc;
+    var errorFunc;
+
     switch (arguments.length)
     {
         case 1:
-            return function (tx){
-                tx.executeSql(arg[0],successCB,errorCB);
-            };
+            sqlFunc=arg[0];
+            successFunc=successCB;
+            errorFunc=errorCB;
+            break;
+
         case 2:
-            return function(tx){
-                tx.executeSql(arg[0],[],arg[1],errorCB);
-            };
+            sqlFunc=arg[0];
+            successFunc=arg[1];
+            errorFunc=errorCB;
+            break;
 
         case 3:
-            return function(tx){
-                tx.executeSql(arg[0],[],arg[1],arg[2]);
-            };
-
-
+            sqlFunc=arg[0];
+            successFunc=arg[1];
+            errorFunc=arg[2];
+            break;
     }
 
+    return function(tx){
+        tx.executeSql(sqlFunc,successFunc,errorFunc);
+    };
+
 }
+
 DbAccessor.prototype.makeQuerySuccess=function(logFunc,dfd){
     return function(tx,results){
         logFunc(tx, results);
@@ -105,21 +145,22 @@ DbAccessor.prototype.select=function()
 
     var dfd= new Deferred();
 
+    var sqlSentence;
 
     switch(arguments.length)
     {
         case 1:
-            var success=dbAccessor.makeQuerySuccess(querySuccess,dfd);
-            var sql=dbAccessor.makeExecuteSql(arg[0],success,errorCB);
-            dbAccessor.transaction(sql,errorCB,successCB);
+
+            sqlSentence=arg[0];
             break;
         case 2:
-            var str="select "+arg[1]+" from "+arg[0];
-            var success=dbAccessor.makeQuerySuccess(querySuccess,dfd);
-            var sql=dbAccessor.makeExecuteSql(str,success,errorCB);
-            dbAccessor.transaction(sql,errorCB,successCB);
+            sqlSentence="select "+arg[1]+" from "+arg[0];
             break;
     }
+
+    var success=dbAccessor.makeQuerySuccess(querySuccess,dfd);
+    var sql=dbAccessor.makeExecuteSql(sqlSentence,success,errorCB);
+    dbAccessor.transaction(sql,errorCB,successCB);
 
 
     return dfd.promise;
@@ -134,26 +175,56 @@ DbAccessor.prototype.createTable=function(tableName,valueArr)
 
     var self=this;
 
+    var dfd=new Deferred();
+
     var str="CREATE TABLE IF NOT EXISTS "+tableName+" ("+valueArr.join(",")+")";
-    var sql=self.makeExecuteSql(str);
+    var success=self.makeQuerySuccess(successCB,dfd);
+    var sql=self.makeExecuteSql(str,success);
     self.transaction(sql);
+    return dfd.promise;
 }
 DbAccessor.prototype.dropTable=function(tableName)
 {
+
     var self=this;
 
+    var dfd=new Deferred();
     var str="DROP TABLE IF EXISTS "+tableName;
-    var sql=self.makeExecuteSql(str);
+    var success=self.makeQuerySuccess(successCB,dfd);
+    var sql=self.makeExecuteSql(str,success);
+
     self.transaction(sql);
+    return dfd.promise;
 }
+
 DbAccessor.prototype.insert=function(tableName,valueArr){
     var self=this;
 
-    var str="insert into "+tableName+" values(\""+valueArr.join("\",\"")+"\")";
+    var arg=arguments;
+    var str;
+    var dfd=new Deferred();
 
-    var sql=self.makeExecuteSql(str);
-    self.transaction(sql);
+    switch(arguments.length)
+    {
+        case 1:
+            str=arg[0];
+            var success=self.makeQuerySuccess(successCB,dfd);
+            var sql=self.makeExecuteSql(str,success);
+            self.transaction(sql);
+        case 2:
+            str="insert into "+arg[0]+" values(\""+arg[1].join("\",\"")+"\")";
+            var success=self.makeQuerySuccess(successCB,dfd);
+            var sql=self.makeExecuteSql(str,success);
+            self.transaction(sql);
+            break;
 
+        default:
+            dfd.reject();
+            alert("insert arguments error");
+    }
+
+
+    return dfd.promise;
 };
 
 
@@ -183,29 +254,6 @@ DbAccessor.prototype.hasRow=function(results)
     return results.rows.length;
 }
 
-/*
-DbAccessor.prototype.hasTable(tableName)
-{
-    var self=this;
-    var str="SELECT name FROM sqlite_master WHERE type='table' AND name='"+tableName+"'";
-    var dfd=self.select(str);
-
-}
-
-
-DbAccessor.prototype.downloadTable=function(results)
-{
-    if(!results.rows.length)
-    {
-        var data=downloadWordTable();
-        insertResources(window.sessionStorage.getItem("selectedTable"),data);
-    }
-
-}
-DbAccessor.prototype.showWordTable=function(tableName)
-{
-
-}
 
 
 function addListView(results){
@@ -217,12 +265,13 @@ function addListView(results){
 
 
 
-function downloadWordTable() {
+function downloadWordTable(tableName) {
 
     var getData;
     $.ajax({
         url: "http://192.168.0.7:9611",
-        async: true,
+        async: false,
+        data:{title:tableName},
         success: function (data) {
             getData = data;
         },
@@ -235,7 +284,6 @@ function downloadWordTable() {
     return getData;
 }
 
-*/
 function insertResources(tableName, wordTableResource){
     var id=0;
     dbAccessor.createTable(tableName);
@@ -263,57 +311,30 @@ function querySuccess(tx, results) {
 }
 
 
+function makeInsertQuery(resultSet){
+
+    var query = "insert into " + resultSet.title + " values ";
+    var isFirstCategory = true;
+
+    for(var i in resultSet.wordMap){
+        if(i!=0)
+            query+=",";
+
+        query+="(";
+        isFirstCategory=true;
+        for(var j in resultSet.wordMap[i]) {
+            if (!isFirstCategory) {
+                query += ",";
+            }else
+                isFirstCategory=false;
+            query += resultSet.wordMap[i][j];
+        }
+        query+=")";
+    }
+    return query;
+
+}
+
+
 var dbAccessor=new DbAccessor();
 
-
-
-/*
- DbAccessor.prototype.select=function(){
- var arg=arguments;
- var self=this;
-
- var promise= $.deferred();
- var queryFunc;
- switch(arguments.length)
- {
- case 1:
- var querySuccessFunc=self.makeQuerySuccessFunc(querySuccess,null);
- queryFunc=self.makeQueryFunc(arg[0],querySuccessFunc);
- self.transaction(queryFunc);
- break;
-
- case 2:
- if(typeof(arg[1])=="function")
- {
- var querySuccessFunc=self.makeQuerySuccessFunc(querySuccess,arg[1]);
- queryFunc=self.makeQueryFunc(arg[0],querySuccessFunc);
- self.transaction(queryFunc);
- }
- else
- {
- var str="select "+arg[1]+" from "+arg[0];
- queryFunc=self.makeQueryFunc(str,querySuccess);
- self.transaction(queryFunc);
- }
-
- break;
- case 3:
-
- var querySuccessFunc=self.makeQuerySuccessFunc(querySuccess,arg[2]);
- var str="select "+arg[1]+" from "+arg[0];
- var queryFunc=self.makeQueryFunc(str,querySuccessFunc);
- self.transaction(queryFunc);
- break;
-
- default:
- break;
-
- }
-
-
-
-
- return promise.promise();
-
- }
- */
