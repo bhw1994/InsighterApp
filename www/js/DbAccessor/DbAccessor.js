@@ -56,7 +56,11 @@ function errorCB(err) {
 }
 
 function successCB() {
-    console.log("success!");
+    console.log("query success!");
+}
+function transactionCB()
+{
+    console.log("transaction success!");
 }
 
 
@@ -74,13 +78,13 @@ DbAccessor.prototype.transaction=function()
         case 1:
             queryFunc=arg[0];
             errorFunc=errorCB;
-            successFunc=successCB;
+            successFunc=transactionCB;
             break;
 
         case 2:
             queryFunc=arg[0];
             errorFunc=arg[1];
-            successFunc=successCB;
+            successFunc=transactionCB;
             break;
 
         case 3:
@@ -100,33 +104,33 @@ DbAccessor.prototype.makeExecuteSql=function()
     var self=this;
     var arg=arguments;
 
-    var sqlFunc;
+    var sentence;
     var successFunc;
     var errorFunc;
 
     switch (arguments.length)
     {
         case 1:
-            sqlFunc=arg[0];
+            sentence=arg[0];
             successFunc=successCB;
             errorFunc=errorCB;
             break;
 
         case 2:
-            sqlFunc=arg[0];
+            sentence=arg[0];
             successFunc=arg[1];
             errorFunc=errorCB;
             break;
 
         case 3:
-            sqlFunc=arg[0];
+            sentence=arg[0];
             successFunc=arg[1];
             errorFunc=arg[2];
             break;
     }
 
     return function(tx){
-        tx.executeSql(sqlFunc,successFunc,errorFunc);
+        tx.executeSql(sentence,[],successFunc,errorFunc);
     };
 
 }
@@ -197,7 +201,7 @@ DbAccessor.prototype.dropTable=function(tableName)
     return dfd.promise;
 }
 
-DbAccessor.prototype.insert=function(tableName,valueArr){
+DbAccessor.prototype.insert=function(){
     var self=this;
 
     var arg=arguments;
@@ -208,20 +212,19 @@ DbAccessor.prototype.insert=function(tableName,valueArr){
     {
         case 1:
             str=arg[0];
-            var success=self.makeQuerySuccess(successCB,dfd);
-            var sql=self.makeExecuteSql(str,success);
-            self.transaction(sql);
+            break;
         case 2:
             str="insert into "+arg[0]+" values(\""+arg[1].join("\",\"")+"\")";
-            var success=self.makeQuerySuccess(successCB,dfd);
-            var sql=self.makeExecuteSql(str,success);
-            self.transaction(sql);
             break;
 
         default:
             dfd.reject();
             alert("insert arguments error");
+            break;
     }
+    var success=self.makeQuerySuccess(successCB,dfd);
+    var sql=self.makeExecuteSql(str,success);
+    self.transaction(sql);
 
 
     return dfd.promise;
@@ -327,7 +330,7 @@ function makeInsertQuery(resultSet){
                 query += ",";
             }else
                 isFirstCategory=false;
-            query += resultSet.wordMap[i][j];
+            query += '"'+resultSet.wordMap[i][j]+'"';
         }
         query+=")";
     }
